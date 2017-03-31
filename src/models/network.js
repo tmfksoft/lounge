@@ -15,6 +15,7 @@ function Network(attr) {
 		tls: false,
 		password: "",
 		awayMessage: "",
+		awayForward: null,
 		commands: [],
 		username: "",
 		realname: "",

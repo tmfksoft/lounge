@@ -95,5 +95,95 @@ module.exports = function(irc, network) {
 		if ([Msg.Type.MESSAGE, Msg.Type.ACTION].indexOf(data.type) !== -1) {
 			LinkPrefetch(client, chan, msg);
 		}
+		
+		// Any code below here is by Thomas Edwards (MajesticFudgie) ~ Pls no h8 :(
+		
+		// If we're in forwarding mode, let the person know and forward their message.
+		if (chan.type === Chan.Type.QUERY) {
+			if (network.awayForward && network.awayForward.target) {
+				// We're set to forwarding.
+				
+				// Cooldown handling!
+				var stamp = Math.round(Date.now()/1000); /* In seconds! */
+				
+				// Check if cooldowns exist.
+				if (typeof network.awayForward.cooldown == "undefined") {
+					network.awayForward.cooldown = {};
+				}
+				
+				// Check if this user is on cooldown
+				var onCooldown = false;
+				if (typeof network.awayForward.cooldown[data.nick.toLowerCase()] != "undefined") {
+					var cdown = network.awayForward.cooldown[data.nick.toLowerCase()];
+					// Has time passed?
+					if (cdown > stamp) {
+						onCooldown = true;
+					}
+				}
+				
+				// Are they out of cooldown? If so remind them.
+				if (!onCooldown) {
+					
+					// Put them back on cooldown for 5 minutes.
+					network.awayForward.cooldown[data.nick.toLowerCase()] = stamp+300;
+					
+					// There's probably a correct way to do this.
+					var forwardMessage = `Hi ${data.nick}, I'm away right now. But I've forwarded your messages to ${network.awayForward.target} on your behalf.`;
+					network.irc.say(target,forwardMessage);
+					
+					// For the sake of sensibility. Push our response into the channel.
+					var msg = new Msg({
+						type: Msg.Type.MESSAGE,
+						time: data.time,
+						mode: chan.getMode(data.nick),
+						from: irc.user.nick,
+						text: forwardMessage,
+						self: true,
+						highlight: highlight
+					});
+					chan.pushMessage(client, msg, !self);
+				
+				}
+				
+				// Just incase we're not already in PM with our destination.
+				var dest = network.getChannel(network.awayForward.target);
+				if (typeof dest === "undefined") {
+					
+					// Init the channel
+					dest = new Chan({
+						type: Chan.Type.QUERY,
+						name: network.awayForward.target
+					});
+					// Add channel
+					network.channels.push(dest);
+					// Trigger the clients join event
+					client.emit("join", {
+						network: network.id,
+						chan: dest
+					});
+				
+				}
+			
+				// The forwarded message.
+				var forwarded = `<${data.nick}> ${data.message}`;
+				
+				// Insert message.
+				var msg = new Msg({
+					type: Msg.Type.MESSAGE,
+					time: data.time,
+					mode: chan.getMode(data.nick),
+					from: irc.user.nick,
+					text: forwarded,
+					self: false,
+					highlight: highlight
+				});
+				dest.pushMessage(client, msg, !self);
+				
+				// Forward the message to the destination
+				network.irc.say(network.awayForward.target,forwarded);
+				
+			}
+		}
+		// End of Fudgie Code.
 	}
 };

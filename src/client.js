@@ -52,7 +52,8 @@ var inputs = [
 	"raw",
 	"topic",
 	"list",
-	"whois"
+	"whois",
+	"awaytty"
 ].reduce(function(plugins, name) {
 	var path = "./plugins/inputs/" + name;
 	var plugin = require(path);
